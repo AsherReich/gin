@@ -1,0 +1,413 @@
+"""
+
+cd desktop
+
+python3 gin.py
+
+"""
+
+import random
+import tkinter as tk
+
+
+class Card:
+    last_id = 0
+
+    def __init__(self, rank, suit):
+        self.rank = rank
+        self.suit = suit
+        self.id = Card.last_id
+        Card.last_id += 1
+
+    def __str__(self):
+        return f"{self.rank}{self.suit}"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def value(self):
+        rank_int = (self.id // 4) + 1
+        return min(rank_int, 10)
+
+class CardManager:
+    cards = []
+
+    for rank in 'A23456789TJQK':
+        for suit in '♣♦♥♠':
+            cards.append(Card(rank, suit))
+
+    @classmethod
+    def get_card_by_id(cls, card_id):
+        for card in cls.cards:
+            if card.id == card_id:
+                return card
+        return None
+
+    @classmethod
+    def card_id_to_str(cls, card_id):
+        card = cls.get_card_by_id(card_id)
+        return str(card) if card is not None else ""
+
+class Deck(CardManager):
+    def __init__(self):
+        self.cards = [card for card in CardManager.cards]
+        random.shuffle(self.cards)
+
+    def draw(self):
+        return self.cards.pop()
+
+    def size(self):
+        return len(self.cards)
+
+class DiscardPile:
+    def __init__(self):
+        self.cards = []
+
+    def draw(self):
+        return self.cards.pop()
+
+    def add_card(self, card):
+        self.cards.append(card)
+
+    def size(self):
+        return len(self.cards)
+
+class Hand:
+    def __init__(self):
+        self.cards = []
+
+    def add_card(self, card):
+        self.cards.append(card)
+
+    def remove_card(self, card):
+        self.cards.remove(card)
+        return card
+
+    def __getitem__(self, index):
+        return self.cards[index]
+
+    def __len__(self):
+        return len(self.cards)
+
+    # Perhaps we should separate HandState from HandDerivedAttributes
+    # def find_melds(self):
+    #     # Implementation to find and return the melds in the hand
+    #     pass
+
+    # def deadwood_value(self):
+    #     melds = self.find_melds()
+    #     # Logic to calculate deadwood value based on melds and unmatched cards
+    #     deadwood_value = 0
+    #     for card in self.cards:
+    #         if card not in melds:
+    #             deadwood_value += card.value()
+    #     return deadwood_value
+
+class Player:
+    def __init__(self):
+        self.score = 0
+        self.hand = Hand()
+
+    def can_knock(self, knock_threshold):
+        can_knock = self.hand.deadwood_value() <= knock_threshold
+        return can_knock
+
+    def has_gin(self):
+        return self.hand.deadwood_value() == 0
+
+    # def partial_game_state(self):
+    #     return {
+    #         "hand": self.hand[:],
+    #         "deadwood": self.deadwood(),
+    #         "can_knock": self.can_knock(),
+    #         "has_gin": self.has_gin(),
+    #     }
+
+class GameState:
+    def __init__(self):
+        self.player1 = Player()
+        self.player2 = Player()
+        self.deck = None
+        self.discard_pile = []
+        self.knock_threshold = None
+        self.current_player = None
+        self.has_drawn = False
+
+    def switch_player(self):
+        if self.current_player == self.player1:
+            self.current_player = self.player2
+        else:
+            self.current_player = self.player1
+        self.has_drawn = False
+
+class GameEngine:
+    def __init__(self):
+        self.game_state = GameState()
+        self.actions = {
+            "draw_from_deck": self.draw_from_deck,
+            "draw_from_discard": self.draw_from_discard,
+            "discard_card": self.discard_card,
+            "knock": self.knock
+            # Add other actions here...
+        }
+        self.start_round()
+
+    def process_action(self, action_name, player, *args, **kwargs):
+        if self.game_state.current_player != player:
+            print("Error: It's not this player's turn")
+            return False
+        if action_name not in self.actions:
+            print(f"Invalid action: {action_name}")
+            return False
+
+        action_method = self.actions[action_name]
+        return action_method(*args, **kwargs)
+
+    def draw_from_deck(self):
+        if self.game_state.has_drawn:
+            print("Error: Player has already drawn")
+            return False
+        card = self.game_state.deck.draw()
+        self.game_state.current_player.hand.add_card(card)
+        self.game_state.has_drawn = True
+        return True
+
+    def draw_from_discard(self):
+        if self.game_state.has_drawn:
+            print("Error: Player has already drawn")
+            return False
+        card = self.game_state.discard_pile.draw()
+        self.game_state.current_player.hand.add_card(card)
+        self.game_state.has_drawn = True
+        return True
+
+    def discard_card(self, card_id):
+        print(card_id)
+        if not self.game_state.has_drawn:
+            print("Error: Player has not drawn")
+            return False
+        card = CardManager.get_card_by_id(card_id)
+        self.game_state.current_player.hand.remove_card(card)
+        self.game_state.discard_pile.cards.append(card)
+        self.game_state.switch_player()
+        return True
+
+    def knock(self):
+        # Handle the specifics of the knock action...
+
+        # 1. Discard a card
+        card_id = get_highest_deadwood_card
+        card = CardManager.get_card_by_id(card_id)
+        player.hand.remove_card(card)
+        self.game_state.discard_pile.cards.append(card)
+
+        # 2. Allow the opponent to lay off
+        # TODO: Implement lay off logic here...
+
+        # 3. Score the round
+        # TODO: Implement scoring logic here...
+
+        # After handling the specifics of the knock action, start a new round
+        self.start_round()
+
+    def start_round(self):
+        self.game_state.deck = Deck()
+        #print(f"{self.game_state.deck.cards[0]} & {self.game_state.deck.cards[0].id} & {self.game_state.deck.cards[0].value()}")
+        self.game_state.discard_pile = DiscardPile()
+        for _ in range(10):
+            self.game_state.player1.hand.add_card(self.game_state.deck.draw())
+            self.game_state.player2.hand.add_card(self.game_state.deck.draw())
+        knock_card = self.game_state.deck.draw()
+        self.game_state.discard_pile.add_card(knock_card)
+        self.game_state.knock_threshold = 0 if knock_card.value == 1 else knock_card.value
+        self.game_state.current_player = self.game_state.player1
+        self.game_state.has_drawn = False
+
+class GameUI:
+    def __init__(self, master):
+        # Establish the master widget (the main window)
+        self.master = master
+        self.master.title("Gin Rummy")
+
+        # Set up a Canvas widget on the master widget
+        self.card_canvas = tk.Canvas(self.master, width=800, height=600)
+        self.card_canvas.pack()
+
+        # Instantiate a GameEngine object
+        self.game_engine = GameEngine()
+
+        # Initialize card tracking attributes
+        self.displayed_card_ids = []
+        self.selected_card_index = None
+
+        # Initialize deck and discard rectangles on canvas
+        canvas_width = int(self.card_canvas['width'])  # Get the width of the canvas
+
+        # Calculate the x coordinates for the deck and discard rectangles
+        x_deck = canvas_width * 0.35 - 25  # 25% from the left edge
+        x_discard = canvas_width * 0.65 - 25  # 75% from the left edge
+
+        y_deck = y_discard = 200  # y coordinate is the same for both rectangles
+
+        # Create deck and discard rectangles
+        self.deck_rect = self.card_canvas.create_rectangle(x_deck, y_deck, x_deck + 50, y_deck + 80, tags=("deck",))
+        self.card_canvas.create_text(x_deck + 25, y_deck + 40, text="", tags=("deck_text",))
+
+        self.discard_rect = self.card_canvas.create_rectangle(x_discard, y_discard, x_discard + 50, y_discard + 80, tags="discard")
+        self.card_canvas.create_text(x_discard + 25, y_discard + 40, text="", tags=("discard_text",))
+
+        # Create rectangles and labels for cards on canvas
+        self.card_rectangles = [None] * 11
+        self.card_texts = [None] * 11
+        canvas_bg_color = self.card_canvas.cget("bg")
+        for i in range(11):
+            self.card_rectangles[i] = self.card_canvas.create_rectangle(0, 0, 0, 0, tags=(f"card_group{i}"), fill=canvas_bg_color)
+            self.card_canvas.itemconfig(self.card_rectangles[i], state=tk.HIDDEN)  # Hide the rectangle initially
+            self.card_texts[i] = self.card_canvas.create_text(0, 0, text="", tags=(f"card_group{i}"))
+            self.card_canvas.tag_bind(f"card_group{i}", "<Button-1>", lambda event, card_index=i: self.card_click(card_index))
+
+        # Create and pack button widgets for game action
+        # Create a Frame widget for buttons and pack it at the bottom of the master
+        button_frame = tk.Frame(self.master)
+        button_frame.pack(side=tk.BOTTOM, fill='x', padx=100, pady=20)
+
+        # Create button widgets inside the frame and place them in a grid
+        self.draw_deck_button = tk.Button(button_frame, text="Draw from Deck", command=self.draw_from_deck, state=tk.DISABLED)
+        self.draw_deck_button.grid(row=0, column=0)
+
+        self.draw_discard_button = tk.Button(button_frame, text="Draw from Discard", command=self.draw_from_discard, state=tk.DISABLED)
+        self.draw_discard_button.grid(row=0, column=1)
+
+        self.discard_button = tk.Button(button_frame, text="Discard", command=self.discard_card, state=tk.DISABLED)
+        self.discard_button.grid(row=0, column=2)
+
+        self.knock_button = tk.Button(button_frame, text="Knock", command=self.knock, state=tk.DISABLED)
+        self.knock_button.grid(row=0, column=3)
+
+        # Configure columns to spread equidistantly
+        for i in range(4):
+            button_frame.columnconfigure(i, weight=1)
+
+        # Update the visual representatio and state of UI elements
+        self.update_deck_display()
+        self.update_discard_pile_display()
+        self.update_card_buttons()
+        self.update_draw_buttons()
+
+    def card_click(self, card_index):
+        if not self.game_engine.game_state.has_drawn:
+            return
+        print(str(card_index))
+        card_id = self.displayed_card_ids[card_index]
+        print(card_id)
+        if card_id is None:
+            print("Error: Card cannot be found")
+            return  # If the card is not found, exit the function
+
+        if self.selected_card_index == card_index:
+            self.selected_card_index = None
+            self.card_canvas.itemconfig(self.card_rectangles[card_index], outline="black")
+            self.discard_button.config(state=tk.DISABLED)
+            return
+        if self.selected_card_index is not None:
+            self.card_canvas.itemconfig(self.card_rectangles[self.selected_card_index], outline="black")
+        self.selected_card_index = card_index
+        self.card_canvas.itemconfig(self.card_rectangles[card_index], outline="red")
+        self.discard_button.config(state=tk.NORMAL)
+
+    def draw_from_deck(self):
+        success = self.game_engine.process_action("draw_from_deck", self.game_engine.game_state.player1)
+        if success:
+            self.update_card_buttons()
+            self.update_draw_buttons()
+            self.update_deck_display()
+
+    def draw_from_discard(self):
+        success = self.game_engine.process_action("draw_from_discard", self.game_engine.game_state.player1)
+        if success:
+            self.update_card_buttons()
+            self.update_draw_buttons()
+            self.update_discard_pile_display()    
+
+    def discard_card(self):
+        card_id = self.displayed_card_ids[self.selected_card_index]
+        print(f"This is your {card_id}")
+        success = self.game_engine.process_action("discard_card", self.game_engine.game_state.player1, card_id)
+        if success:
+            #self.card_canvas.itemconfig(self.card_rectangles[self.selected_card_index], outline="black")
+            self.selected_card_index = None
+            self.update_card_buttons()
+            self.update_discard_pile_display()
+            self.update_draw_buttons()
+
+    def knock(self):
+        pass
+
+    def update_deck_display(self):
+        deck_count = self.game_engine.game_state.deck.size()
+        self.card_canvas.itemconfig("deck_text", text=str(deck_count))
+
+    def update_discard_pile_display(self):
+        if  self.game_engine.game_state.discard_pile.size() == 0:
+            self.card_canvas.itemconfig("discard_text", text="")
+        else:
+            top_card = self.game_engine.game_state.discard_pile.cards[-1]
+            self.card_canvas.itemconfig("discard_text", text=str(top_card))
+
+    # handle hand display
+    def update_card_buttons(self):
+        self.build_displayed_card_ids()
+        self.render_hand_on_canvas()
+
+    def build_displayed_card_ids(self):
+        self.displayed_card_ids = []
+        for card in self.game_engine.game_state.player1.hand.cards:
+            self.displayed_card_ids.append(card.id)
+        print(self.displayed_card_ids)
+        # sort to be added
+
+    def render_hand_on_canvas(self):
+        hand = self.displayed_card_ids
+        card_width = 50
+        canvas_width = 800
+        margin = 50  # left and right margin
+        number_of_cards = len(hand)
+        
+        # Total space available for cards to be spread across
+        total_space = canvas_width - 2 * margin - card_width  # subtract margin on both sides
+        
+        # Space between each card
+        space_per_card = total_space / (number_of_cards - 1) if number_of_cards > 1 else total_space
+        print(hand[9])
+        for i, card in enumerate(hand):
+            x = margin + i * space_per_card  # add margin to x
+            y = 400
+            card_str = CardManager.card_id_to_str(card)
+            self.card_canvas.coords(self.card_rectangles[i], x, y, x + card_width, y + 80)
+            self.card_canvas.coords(self.card_texts[i], x + card_width / 2, y + 40)  # Update text position as well
+            self.card_canvas.itemconfig(self.card_texts[i], state=tk.NORMAL, text=card_str)
+            self.card_canvas.itemconfig(self.card_rectangles[i], state=tk.NORMAL, outline='black')  # Make the rectangle visible
+
+        # Hide any remaining rectangles and texts
+        print([number_of_cards, len(self.card_rectangles)])
+        for i in range(number_of_cards, len(self.card_rectangles)):
+            self.card_canvas.itemconfig(self.card_rectangles[i], state=tk.HIDDEN)
+            self.card_canvas.itemconfig(self.card_texts[i], state=tk.HIDDEN)
+
+    def update_draw_buttons(self):
+        if not self.game_engine.game_state.has_drawn:
+            self.draw_deck_button.config(state=tk.NORMAL)
+            self.draw_discard_button.config(state=tk.NORMAL)
+            self.discard_button.config(state=tk.DISABLED)
+        else:
+            self.draw_deck_button.config(state=tk.DISABLED)
+            self.draw_discard_button.config(state=tk.DISABLED)
+            self.discard_button.config(state=tk.NORMAL)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    GameUI(root)
+    root.mainloop()
