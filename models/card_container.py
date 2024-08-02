@@ -14,12 +14,15 @@ class CardContainer:
 
     def get_card_positions(self, card_width, card_height):
         positions = []
+        offset = 0
         for index, card in enumerate(self.cards):
             if self.horizontal:
-                pos_x = self.x + index * (card_width * self.overlap_ratio)
+                pos_x = self.x + offset
                 pos_y = self.y
+                offset += card_width * (1 - self.overlap_ratio)
             else:
                 pos_x = self.x
-                pos_y = self.y + index * (card_height * self.overlap_ratio)
+                pos_y = self.y + offset
+                offset += card_height * (1 - self.overlap_ratio)
             positions.append((pos_x, pos_y))
         return positions
