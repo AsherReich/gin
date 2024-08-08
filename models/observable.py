@@ -11,4 +11,4 @@ class Observable:
 
     def notify_observers(self, *args, **kwargs):
         for observer in self._observers:
-            observer.update(self, *args, **kwargs)
+            observer.update_view(self, *args, **kwargs)
